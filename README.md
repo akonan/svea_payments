@@ -29,27 +29,27 @@ Refer to the Svea Payments API documentation and this gem's tests: https://sveap
 
 First, obtain an authentication token:
 
-token = SveaPayments::Authentication.get_basic_auth_token(username, password)
+    token = SveaPayments::Authentication.get_basic_auth_token(username, password)
 
 ### Creating a Payment
 
 To create a payment, provide the necessary payment details in this style:
 
-payment_details = {
-  'pmt_reference' => 'your_reference',
-  'pmt_amount' => '1000',
-  'pmt_currency' => 'EUR',
-  'pmt_sellercosts' => '0',
-  'pmt_paymentmethod' => 'creditcard'
-}
+    payment_details = {
+      'pmt_reference' => 'your_reference',
+      'pmt_amount' => '1000',
+      'pmt_currency' => 'EUR',
+      'pmt_sellercosts' => '0',
+      'pmt_paymentmethod' => 'creditcard'
+    }
 
-payment_response, status = SveaPayments::Payment.create_payment(token, payment_details)
+    payment_response, status = SveaPayments::Payment.create_payment(token, payment_details)
 
 ### Querying Payment Status
 
 To query the status of a payment, use the payment ID:
 
-payment_status = SveaPayments::Payment.query_payment_status(token, payment_response['pmt_id'], pmt_sellerid)
+    payment_status = SveaPayments::Payment.query_payment_status(token, payment_response['pmt_id'], pmt_sellerid)
 
 ## Development
 
