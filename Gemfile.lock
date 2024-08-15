@@ -1,0 +1,58 @@
+PATH
+  remote: .
+  specs:
+    svea_payments (0.1.0)
+      httparty
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    addressable (2.8.6)
+      public_suffix (>= 2.0.2, < 6.0)
+    bigdecimal (3.1.6)
+    crack (1.0.0)
+      bigdecimal
+      rexml
+    diff-lcs (1.5.1)
+    hashdiff (1.1.0)
+    httparty (0.21.0)
+      mini_mime (>= 1.0.0)
+      multi_xml (>= 0.5.2)
+    mini_mime (1.1.5)
+    multi_xml (0.6.0)
+    nokogiri (1.16.2-x86_64-darwin)
+      racc (~> 1.4)
+    public_suffix (5.0.4)
+    racc (1.7.3)
+    rake (13.1.0)
+    rexml (3.2.6)
+    rspec (3.13.0)
+      rspec-core (~> 3.13.0)
+      rspec-expectations (~> 3.13.0)
+      rspec-mocks (~> 3.13.0)
+    rspec-core (3.13.0)
+      rspec-support (~> 3.13.0)
+    rspec-expectations (3.13.0)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-mocks (3.13.0)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.13.0)
+    rspec-support (3.13.0)
+    webmock (3.22.0)
+      addressable (>= 2.8.0)
+      crack (>= 0.3.2)
+      hashdiff (>= 0.4.0, < 2.0.0)
+
+PLATFORMS
+  x86_64-darwin-21
+
+DEPENDENCIES
+  nokogiri (~> 1.16, >= 1.16.2)
+  rake (~> 13.0)
+  rspec (~> 3.0)
+  svea_payments!
+  webmock
+
+BUNDLED WITH
+   2.4.21
