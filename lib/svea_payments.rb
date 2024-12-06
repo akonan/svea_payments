@@ -1,6 +1,7 @@
 require_relative "svea_payments/version"
 require_relative "svea_payments/authentication"
 require_relative "svea_payments/payment"
+require_relative "svea_payments/payment_methods"
 
 module SveaPayments
   BASE_URL_TEST = "https://test1.maksuturva.fi"
