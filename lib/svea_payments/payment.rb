@@ -26,7 +26,8 @@ module SveaPayments
         'pmt_currency' => xml_doc.xpath("//pmt_currency").text,
         'pmt_sellercosts' => xml_doc.xpath("//pmt_sellercosts").text,
         'pmt_paymentmethod' => xml_doc.xpath("//pmt_paymentmethod").text,
-        'pmt_paymenturl' => xml_doc.xpath("//pmt_paymenturl").text
+        'pmt_paymenturl' => xml_doc.xpath("//pmt_paymenturl").text,
+        'errors' => xml_doc.xpath("//error").map { |error| error.text }
       }
       
       return response_data
