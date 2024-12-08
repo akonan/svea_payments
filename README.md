@@ -76,7 +76,6 @@ To install this gem onto your local machine, run bundle exec rake install. To re
 ## TODO
 
 - Add refunds
-- Add reporting
 
 ## Contributing
 
