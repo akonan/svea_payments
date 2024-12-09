@@ -14,7 +14,7 @@ module SveaPayments
       # Build form data parameters
       form_data = {
         'gc_action' => format == 'XML' ? 'GET_SETTLEMENTS_XML' : 'GET_SETTLEMENTS_CSV',
-        'gc_version' => '0001',
+        'gc_version' => '0003',
         'gc_sellerid' => seller_id,
         'gc_begindate' => formatted_start_date || start_date,
         'gc_enddate' => formatted_end_date || end_date,
