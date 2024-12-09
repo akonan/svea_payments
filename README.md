@@ -64,7 +64,7 @@ To query the status of a payment, use the payment ID:
 ### Compensation report query
 
     start_date = Date.new(2024, 11, 1)
-    end_date = Date.new(2023, 11, 30)
+    end_date = Date.new(2024, 11, 30)
     SveaPayments::Reports.get_compensation_report(start_date, end_date, seller_id, token)
     SveaPayments::Reports.get_compensation_report(start_date, end_date, seller_id, token, format: 'CSV', key_generation: '004)
 
