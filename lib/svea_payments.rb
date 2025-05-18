@@ -22,6 +22,13 @@ module SveaPayments
     yield(Configuration)
   end
 
+  # Provides access to the configuration object. This allows other
+  # components (for example {SveaPayments::Config}) to read the current
+  # configuration values via `SveaPayments.configuration`.
+  def self.configuration
+    Configuration
+  end
+
   def self.base_url
     Configuration.use_test_env ? BASE_URL_TEST : BASE_URL_PROD
   end
