@@ -27,7 +27,8 @@ end
 Refer to the Svea Payments API documentation and this gem's tests: https://sveapayments.atlassian.net/wiki/spaces/DOCS/overview?homepageId=65539
 ### Authentication
 
-First, obtain an authentication token:
+First, obtain an authentication token. The returned string can be used as the
+value for the `Authorization` HTTP header:
 
     token = SveaPayments::Authentication.get_basic_auth_token(username, password)
 
