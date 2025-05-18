@@ -21,7 +21,6 @@ RSpec.describe SveaPayments::Reports, :type => :request do
 
     it 'successfully retrieves compensation report in XML format' do
       response = described_class.get_compensation_report(start_date, end_date, seller_id, token)
-      puts response.inspect
       # Verify response structure
       expect(response).to include(
         'version',
