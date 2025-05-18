@@ -13,7 +13,7 @@
 
 ### Added
 
-- Feature: Added erros to create payment
+- Feature: Added errors to create payment
 
 ## [0.1.0] - 2024-08-15
 
