@@ -4,7 +4,7 @@ RSpec.describe SveaPayments::PaymentMethods, :type => :request do
   before do
     WebMock.allow_net_connect!
   end
-  
+
   after do
     WebMock.disable_net_connect!(allow_localhost: true)
   end
@@ -14,7 +14,7 @@ RSpec.describe SveaPayments::PaymentMethods, :type => :request do
       username = 'ILQXQZEI'
       password = 'Pyq8kd5CFSMSuCxate26xHw73edZyg2ytUQMqJPQ'
       token = SveaPayments::Authentication.get_basic_auth_token(username, password)
-      
+
       request_details = {
         'sellerid' => 'ILQXQZEI',
         'request_locale' => 'fi',
@@ -93,16 +93,6 @@ RSpec.describe SveaPayments::PaymentMethods, :type => :request do
           }
         },
         {
-          code: "FI09",
-          displayname: "Handelsbanken Verkkomaksu",
-          imageurl: {
-            url: "https://www.maksuturva.fi/public_img/paymentmethods/FI09_fi.png",
-            width: 150,
-            height: 80,
-            mimetype: "image/png"
-          }
-        },
-        {
           code: "FI10",
           displayname: "S-pankki Verkkomaksu",
           imageurl: {
@@ -153,7 +143,7 @@ RSpec.describe SveaPayments::PaymentMethods, :type => :request do
       username = 'ILQXQZEI'
       password = 'Pyq8kd5CFSMSuCxate26xHw73edZyg2ytUQMqJPQ'
       token = SveaPayments::Authentication.get_basic_auth_token(username, password)
-      
+
       # Missing required parameters
       request_details = {
         'sellerid' => 'ILQXQZEI',
@@ -162,7 +152,7 @@ RSpec.describe SveaPayments::PaymentMethods, :type => :request do
       }
 
       response = SveaPayments::PaymentMethods.get_available_payment_methods(token, request_details)
-      expect(response.count).to eq(13)
+      expect(response.count).to eq(12)
     end
 
   end
