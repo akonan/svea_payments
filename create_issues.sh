@@ -359,33 +359,61 @@ EOF
 
 # --- Issue 13: Feature ---
 create_issue \
-  "Implement refunds API" \
+  "Add refund/cancel payment support (PaymentCancel.pmt)" \
   "enhancement" \
   "$(cat <<'EOF'
 ## Description
 
-The README lists refunds as a TODO item. For a payment gem used in production, refund support is an important feature.
+Add `SveaPayments::Refund.cancel_payment(token, params)` method as a thin wrapper around Svea's `PaymentCancel.pmt` endpoint. Must support all three cancel types: `FULL_REFUND`, `PARTIAL_REFUND`, and `REFUND_AFTER_SETTLEMENT`.
 
-The Svea Payments API supports refunds via the `PaymentCancel.pmt` endpoint.
+This is currently listed as a TODO in the README.
 
-## Suggested Implementation
+## Acceptance Criteria
 
-Create `lib/svea_payments/refund.rb`:
+- [ ] `SveaPayments::Refund.cancel_payment` sends POST to `PaymentCancel.pmt`
+- [ ] Sets default values for `pmtc_action`, `pmtc_version`, `pmtc_resptype`, `pmtc_keygeneration`
+- [ ] `pmtc_action` is `CANCEL` for pre-settlement, `REFUND_AFTER_SETTLEMENT` for post-settlement
+- [ ] Returns parsed hash with all response fields including payment details for post-settlement
+- [ ] Follows existing gem patterns (uses `Base.send_post_request`)
+- [ ] Integration tests against Svea test environment
+
+## Implementation Plan
+
+1. Create `lib/svea_payments/refund.rb`
+2. Add method with default values and response parsing
+3. Handle `pmtc_action` based on `pmtc_canceltype`
+4. Parse post-settlement payment details (`pmtc_pay_with_*` fields)
+5. Add integration tests
+6. Require new file in `lib/svea_payments.rb`
+
+## Example Usage
 
 ```ruby
-module SveaPayments
-  class Refund
-    extend Base
+token = SveaPayments::Authentication.get_token(username, password)
 
-    def self.cancel_payment(token, cancel_details)
-      uri = URI("#{SveaPayments.base_url}/PaymentCancel.pmt")
-      # ...
-    end
-  end
-end
+# Full refund (pre-settlement)
+response = SveaPayments::Refund.cancel_payment(token, {
+  pmtc_id: 'PMT123',
+  pmtc_amount: '100.00',
+  pmtc_currency: 'EUR',
+  pmtc_canceltype: 'FULL_REFUND',
+  pmtc_sellercosts: '0.00'
+})
+
+# Refund after settlement
+response = SveaPayments::Refund.cancel_payment(token, {
+  pmtc_id: 'PMT123',
+  pmtc_amount: '50.00',
+  pmtc_currency: 'EUR',
+  pmtc_canceltype: 'REFUND_AFTER_SETTLEMENT',
+  pmtc_sellercosts: '0.00'
+})
 ```
 
-Refer to the Svea Payments API documentation for the exact request/response format.
+## API References
+
+- [Refund or Cancel Payment](https://sveapayments.atlassian.net/wiki/spaces/DOCS/pages/1657012799/Refund+or+Cancel+Payment)
+- [Refund Payment After Settlement](https://sveapayments.atlassian.net/wiki/spaces/DOCS/pages/1657012824/Refund+Payment+After+Settlement)
 EOF
 )"
 
