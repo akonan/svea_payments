@@ -4,6 +4,11 @@ SveaPayments is a Ruby gem for integrating with the Svea Payments API. This gem 
 
 ## Installation
 
+Requires Ruby 3.2 or later. CI tests Ruby 3.2 and the consumer's Ruby 3.4.9.
+
+**Release hold:** the unreleased refund work is not approved for a public gem
+release. The remaining codebase-review findings must be resolved separately.
+
 To install the gem and add it to your application's Gemfile, execute:
 
     $ bundle add svea_payments

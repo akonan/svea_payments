@@ -1,5 +1,23 @@
 # Repository review and refund handoff
 
+## PR #9 follow-up: release remains on hold
+
+CI now targets Ruby 3.2 and 3.4.9; the gem minimum is 3.2 to match the locked
+Nokogiri dependency. Refund responses require matching action/version and
+seller/payment identity, unambiguous response fields and a two-digit code.
+Code 00 additionally requires nonblank funding instructions and a positive
+comma-decimal transfer amount. Other business codes retain their errors without
+requiring funding instructions. A different valid transfer amount is allowed.
+Malformed replies raise InvalidResponseError with an unknown-outcome warning;
+callers must reconcile rather than blindly retry.
+
+Local verification: Ruby 3.4.9, 78 offline examples, zero failures; diff whitespace
+checks and CI-matrix/gemspec consistency checks pass. Hosted CI must also pass
+before merge. No live refund calls, release or visibility changes were made.
+GitHub currently reports the repository itself as public; the hold applies to
+publishing a release, not a claim that the repository is private.
+Non-refund transport, CSV and consumer-integration findings remain out of scope.
+
 Reviewed baseline: `af528e2`. Working branch: `refund-support-review`.
 
 ## Refund status: implemented from the supplied PDF

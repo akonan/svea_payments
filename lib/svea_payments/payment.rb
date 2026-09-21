@@ -40,6 +40,32 @@ module SveaPayments
       response = REFUND_RESPONSE_FIELDS.each_with_object({}) do |field, result|
         result[field] = root.at_xpath("./#{field}")&.text
       end
+      # Reject ambiguous replies instead of choosing the first duplicate field.
+      REFUND_RESPONSE_FIELDS.each do |field|
+        if root.xpath("./#{field}").length > 1
+          raise SveaPayments::InvalidResponseError, "Duplicate #{field}; request outcome may be unknown"
+        end
+      end
+      %w[pmtc_action pmtc_version pmtc_sellerid pmtc_id].each do |field|
+        unless response[field] == request[field].to_s
+          raise SveaPayments::InvalidResponseError, "Mismatched or missing #{field}; request outcome may be unknown"
+        end
+      end
+      unless response['pmtc_returncode'].match?(/\A\d{2}\z/)
+        raise SveaPayments::InvalidResponseError, 'Invalid refund response code; request outcome may be unknown'
+      end
+      if response['pmtc_returncode'] == '00'
+        %w[pmtc_pay_with_reference pmtc_pay_with_recipientname pmtc_pay_with_amount pmtc_pay_with_iban].each do |field|
+          if response[field].to_s.strip.empty?
+            raise SveaPayments::InvalidResponseError, "Missing #{field}; request outcome may be unknown"
+          end
+        end
+        # The funding amount need not equal the requested refund amount.
+        amount = response['pmtc_pay_with_amount']
+        unless amount.match?(/\A\d+,\d{2}\z/) && amount.delete(',').to_i.positive?
+          raise SveaPayments::InvalidResponseError, 'Invalid funding amount; request outcome may be unknown'
+        end
+      end
       response['errors'] = root.xpath('./errors/error').map do |error|
         { 'type' => error['type'], 'name' => error['name'], 'message' => error.text }
       end
