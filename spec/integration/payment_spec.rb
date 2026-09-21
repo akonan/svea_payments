@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-RSpec.describe SveaPayments::Payment, :type => :request do
+RSpec.describe SveaPayments::Payment, :type => :request, :live => true do
   before do
     WebMock.allow_net_connect!
   end

@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'svea_payments'
 require 'date'
 
-RSpec.describe SveaPayments::Reports, :type => :request do
+RSpec.describe SveaPayments::Reports, :type => :request, :live => true do
   before do
     WebMock.allow_net_connect!
   end
@@ -146,4 +146,4 @@ RSpec.describe SveaPayments::Reports, :type => :request do
       end
     end
   end
-end 
+end

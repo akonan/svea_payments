@@ -44,13 +44,77 @@ To create a payment, provide the necessary payment details in this style:
       'pmt_paymentmethod' => 'creditcard'
     }
 
-    payment_response, status = SveaPayments::Payment.create_payment(token, payment_details)
+    payment_response = SveaPayments::Payment.create_payment(token, payment_details)
 
 ### Querying Payment Status
 
 To query the status of a payment, use the payment ID:
 
     payment_status = SveaPayments::Payment.query_payment_status(token, payment_response['pmt_id'], pmt_sellerid)
+
+### Refund After Settlement
+
+Use this only after Svea has settled the original payment to the merchant.
+It **initiates** a refund; it does not transfer money or confirm the buyer has
+received it.
+
+```ruby
+refund = SveaPayments::Payment.refund_after_settlement(token, {
+  'pmtc_sellerid' => 'your_seller_id',
+  'pmtc_id' => 'original_payment_id',
+  'pmtc_amount' => '100,00',       # Original pmt_amount, NOT the refund amount
+  'pmtc_currency' => 'EUR',       # Original pmt_currency
+  'pmtc_cancelamount' => '15,00',  # Full or partial amount to refund
+  'pmtc_cancel_id' => 'order-123-refund-1' # Persist this unique refund ID
+})
+```
+
+Amounts must be strings with two decimal places and a comma, without thousands
+separators. The method supplies action/canceltype `REFUND_AFTER_SETTLEMENT`,
+version `0005`, XML response type and key generation `001`. Override only key
+generation when necessary using `pmtc_keygeneration`.
+
+| `pmtc_returncode` | Meaning |
+| --- | --- |
+| `00` | Request received successfully; **merchant funding still required** |
+| `20` | Payment not found |
+| `90` | Invalid input; inspect `errors` |
+| `91` | Duplicate `pmtc_cancel_id` for this order; not a new accepted refund |
+| `99` | Failed; inspect `pmtc_returntext` |
+
+The result is a string-keyed hash preserving the provider's response fields.
+On `00`, use `pmtc_pay_with_iban`, `pmtc_pay_with_recipientname`,
+`pmtc_pay_with_amount` and `pmtc_pay_with_reference` to **separately transfer
+money from the merchant's bank to Svea**. Use the exact returned amount and
+reference (including leading zeroes); do not substitute the requested amount.
+Svea refunds the buyer after receiving the merchant's money. This gem does not
+perform that bank transfer. Confirm all instructions are present before acting.
+
+`errors` is an array of hashes with `type`, `name` and `message`; absent response
+fields are `nil`. Unknown return codes are preserved, not interpreted as success.
+`pmtc_returntext` is preserved even for `00`: the PDF's example contains success
+text despite its field table saying the success text is empty.
+
+Optional request fields: `pmtc_canceldescription` (up to 500 characters),
+`pmtc_cancelreason` (`NOTDE`, `WSIZE`, `INCOR`, `DEFEC`, `OUTOF`, `OTHER`),
+`pmtc_payeribanrefund` (Finnish buyer IBAN, only for applicable bank payments),
+and `pmtc_pay_with_reference` (requires a separate agreement with Svea).
+Provider-specific eligibility and optional-field validation remain with Svea.
+
+Use a stable `pmtc_cancel_id` for each logical refund. The provider rejects reuse
+for another refund on the same order. A timeout or HTTP error can leave the
+outcome unknown: reconcile before retrying, and never generate a new ID merely
+to bypass a duplicate response. This method never retries automatically.
+
+Non-2xx HTTP responses raise `SveaPayments::HTTPError` (with `status`); malformed
+XML or a missing refund root/code raises `SveaPayments::InvalidResponseError`.
+Network errors propagate. Refund requests use 10-second connect and 30-second
+read/write timeouts. Existing non-refund operations retain their old behavior.
+
+Source: [Refund Payment After Settlement](https://sveapayments.atlassian.net/wiki/spaces/DOCS/pages/1657012824),
+provided PDF export `DOCS-Refund Payment After Settlement-210926-133729.pdf`.
+This document specifies **no grace-period cutoff**. Before-settlement cancellation
+and refund-completion polling are not implemented by this method.
 
 ### Getting Available Payment Methods
 
@@ -71,13 +135,18 @@ To query the status of a payment, use the payment ID:
 
 ## Development
 
+`bundle exec rake` runs offline tests only. Tests tagged `live` contact Svea's
+sandbox and can create payments. Run them deliberately with
+`SVEA_LIVE_TESTS=1 bundle exec rspec spec/integration`.
+
+
 After checking out the repo, run bin/setup to install dependencies. Then, run rake spec to run the tests. You can also run bin/console for an interactive prompt that will allow you to experiment.
 
 To install this gem onto your local machine, run bundle exec rake install. To release a new version, update the version number in version.rb, and then run bundle exec rake release, which will create a git tag for the version, push git commits and the created tag, and push the .gem file to rubygems.org.
 
 ## TODO
 
-- Add refunds
+- Before-settlement cancellation/refunds (requires the separate API contract)
 
 ## Contributing
 

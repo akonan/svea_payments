@@ -1,4 +1,10 @@
 
+## Unreleased
+
+- Add after-settlement refund requests with funding instructions, structured
+  errors, duplicate-ID support, strict response handling and offline tests.
+- Declare Nokogiri and base64 runtime dependencies; make live tests opt-in.
+
 ## [0.1.2] - 2024-12-08
 
 ### Added
