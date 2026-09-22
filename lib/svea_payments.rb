@@ -1,3 +1,16 @@
+module SveaPayments
+  class Error < StandardError; end
+  class HTTPError < Error
+    attr_reader :status
+
+    def initialize(status)
+      @status = status.to_i
+      super("Svea returned HTTP #{@status}; request outcome may be unknown")
+    end
+  end
+  class InvalidResponseError < Error; end
+end
+
 require_relative "svea_payments/version"
 require_relative "svea_payments/authentication"
 require_relative "svea_payments/payment"
@@ -7,8 +20,6 @@ require_relative "svea_payments/reports"
 module SveaPayments
   BASE_URL_TEST = "https://test1.maksuturva.fi"
   BASE_URL_PROD = "https://www.maksuturva.fi"
-
-  class Error < StandardError; end
 
   module Configuration
     @use_test_env = false
