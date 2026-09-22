@@ -4,11 +4,11 @@ require 'date'
 
 RSpec.describe SveaPayments::Reports, :type => :request, :live => true do
   before do
-    WebMock.allow_net_connect!
+    WebMock.disable_net_connect!(allow: %r{\Ahttps://test1\.maksuturva\.fi(?::443)?/})
   end
   
   after do
-    WebMock.disable_net_connect!(allow_localhost: true)
+    WebMock.disable_net_connect!
   end
 
   describe '.get_compensation_report' do
@@ -80,8 +80,7 @@ RSpec.describe SveaPayments::Reports, :type => :request, :live => true do
         format: 'CSV'
       )
       
-      # Verify it returns Nokogiri XML object for CSV response
-      expect(response).to be_a(Nokogiri::XML::Document)
+      expect(response).to be_a(String)
     end
 
     it 'handles string dates correctly' do

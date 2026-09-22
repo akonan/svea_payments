@@ -5,6 +5,7 @@ module SveaPayments
     extend Base
 
     def self.get_compensation_report(start_date, end_date, seller_id, token, format: 'XML', key_generation: '001')
+      raise ArgumentError, 'format must be XML or CSV' unless %w[XML CSV].include?(format)
       uri = URI("#{SveaPayments.base_url}/GetCompensationsByTimeInterval.pmt")
       
       # Format dates as required by the API (dd.MM.yyyy)
@@ -25,17 +26,20 @@ module SveaPayments
       encoded_form_data = URI.encode_www_form(form_data)
       
       # Send POST request and return the response
-      xml_doc = send_post_request(uri, encoded_form_data, token)
+      xml_doc = send_post_request(uri, encoded_form_data, token, raw: format == 'CSV')
       
       if format == 'XML'
+        root = xml_doc.root
+        invalid_response!('Missing report resultCode') if response_field(root, 'resultCode').to_s.strip.empty?
+        validate_identity(root, { 'sellerId' => seller_id }, required: false)
         # Parse and return the XML response
         {
-          'version' => xml_doc.at_xpath('//version')&.text,
-          'timestamp' => xml_doc.at_xpath('//timestamp')&.text,
-          'sellerId' => xml_doc.at_xpath('//sellerId')&.text,
-          'resultCode' => xml_doc.at_xpath('//resultCode')&.text,
-          'resultText' => xml_doc.at_xpath('//resultText')&.text,
-          'keyGeneration' => xml_doc.at_xpath('//keyGeneration')&.text,
+          'version' => response_field(root, 'version'),
+          'timestamp' => response_field(root, 'timestamp'),
+          'sellerId' => response_field(root, 'sellerId'),
+          'resultCode' => response_field(root, 'resultCode'),
+          'resultText' => response_field(root, 'resultText'),
+          'keyGeneration' => response_field(root, 'keyGeneration'),
           'compensations' => parse_compensations(xml_doc)
         }
       else
@@ -49,15 +53,15 @@ module SveaPayments
     def self.parse_compensations(xml_doc)
       xml_doc.xpath('//compensation').map do |comp|
         {
-          'compensationCode' => comp.at_xpath('.//compensationCode')&.text,
-          'compensationType' => comp.at_xpath('.//compensationType')&.text,
-          'compensationDate' => comp.at_xpath('.//compensationDate')&.text,
-          'reference' => comp.at_xpath('.//reference')&.text,
-          'grossAmount' => comp.at_xpath('.//grossAmount')&.text,
-          'netAmount' => comp.at_xpath('.//netAmount')&.text,
-          'refundedAmount' => comp.at_xpath('.//refundedAmount')&.text,
-          'commission' => comp.at_xpath('.//commission')&.text,
-          'commissionVat' => comp.at_xpath('.//commissionVat')&.text,
+          'compensationCode' => response_field(comp, 'compensationCode'),
+          'compensationType' => response_field(comp, 'compensationType'),
+          'compensationDate' => response_field(comp, 'compensationDate'),
+          'reference' => response_field(comp, 'reference'),
+          'grossAmount' => response_field(comp, 'grossAmount'),
+          'netAmount' => response_field(comp, 'netAmount'),
+          'refundedAmount' => response_field(comp, 'refundedAmount'),
+          'commission' => response_field(comp, 'commission'),
+          'commissionVat' => response_field(comp, 'commissionVat'),
           'orders' => parse_orders(comp)
         }
       end
@@ -66,24 +70,24 @@ module SveaPayments
     def self.parse_orders(compensation)
       compensation.xpath('.//order').map do |order|
         {
-          'bundleCode' => order.at_xpath('.//bundleCode')&.text,
-          'orderNumber' => order.at_xpath('.//orderNumber')&.text,
-          'originalReference' => order.at_xpath('.//originalReference')&.text,
-          'paymentId' => order.at_xpath('.//paymentId')&.text,
-          'sellerGrossAmount' => order.at_xpath('.//sellerGrossAmount')&.text,
-          'sellerNetAmount' => order.at_xpath('.//sellerNetAmount')&.text,
-          'refundedAmount' => order.at_xpath('.//refundedAmount')&.text,
-          'commission' => order.at_xpath('.//commission')&.text,
-          'commissionVat' => order.at_xpath('.//commissionVat')&.text,
-          'commissionVatRate' => order.at_xpath('.//commissionVatRate')&.text,
-          'buyerPaymentDateTime' => order.at_xpath('.//buyerPaymentDateTime')&.text,
-          'paymentMethod' => order.at_xpath('.//paymentMethod')&.text,
-          'paymentMethodGroup' => order.at_xpath('.//paymentMethodGroup')&.text,
-          'marketplaceCommission' => order.at_xpath('.//marketplaceCommission')&.text,
-          'marketplaceCommissionReference' => order.at_xpath('.//marketplaceCommissionReference')&.text,
-          'marketplaceCommissionCompensationDate' => order.at_xpath('.//marketplaceCommissionCompensationDate')&.text
+          'bundleCode' => response_field(order, 'bundleCode'),
+          'orderNumber' => response_field(order, 'orderNumber'),
+          'originalReference' => response_field(order, 'originalReference'),
+          'paymentId' => response_field(order, 'paymentId'),
+          'sellerGrossAmount' => response_field(order, 'sellerGrossAmount'),
+          'sellerNetAmount' => response_field(order, 'sellerNetAmount'),
+          'refundedAmount' => response_field(order, 'refundedAmount'),
+          'commission' => response_field(order, 'commission'),
+          'commissionVat' => response_field(order, 'commissionVat'),
+          'commissionVatRate' => response_field(order, 'commissionVatRate'),
+          'buyerPaymentDateTime' => response_field(order, 'buyerPaymentDateTime'),
+          'paymentMethod' => response_field(order, 'paymentMethod'),
+          'paymentMethodGroup' => response_field(order, 'paymentMethodGroup'),
+          'marketplaceCommission' => response_field(order, 'marketplaceCommission'),
+          'marketplaceCommissionReference' => response_field(order, 'marketplaceCommissionReference'),
+          'marketplaceCommissionCompensationDate' => response_field(order, 'marketplaceCommissionCompensationDate')
         }
       end
     end
   end
-end 
+end

@@ -2,11 +2,11 @@ require 'spec_helper'
 
 RSpec.describe SveaPayments::Payment, :type => :request, :live => true do
   before do
-    WebMock.allow_net_connect!
+    WebMock.disable_net_connect!(allow: %r{\Ahttps://test1\.maksuturva\.fi(?::443)?/})
   end
   
   after do
-    WebMock.disable_net_connect!(allow_localhost: true)
+    WebMock.disable_net_connect!
   end
   describe 'create payment with specific attributes' do
     it 'successfully creates a payment with specific attributes and returns payment ID' do
@@ -82,7 +82,9 @@ RSpec.describe SveaPayments::Payment, :type => :request, :live => true do
       
       response = SveaPayments::Payment.create_payment(token, payment_details)
 
-      expect(response).to include("pmt_id")
+      expect(response['errors']).to eq([])
+      expect(response['pmt_id']).not_to be_empty
+      expect(response['pmt_paymenturl']).to match(%r{\Ahttps://})
     end
   end
 end
