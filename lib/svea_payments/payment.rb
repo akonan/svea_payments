@@ -130,8 +130,13 @@ module SveaPayments
       invalid_response!('Invalid payment query root') unless root.name == 'pmtq'
       code = response_field(root, 'pmtq_returncode')
       invalid_response!('Invalid payment query code') unless code&.match?(/\A\d{2}\z/)
-      # Rejections may omit identifiers, but supplied identities must match.
-      validate_identity(root, request_data.slice('pmtq_id', 'pmtq_sellerid'), required: code == '00')
+      # Query codes are NOT refund codes: 00 is unpaid, 20–98 is confirmed,
+      # 99 is cancelled/refunded, and 01 means the query itself failed.
+      # See docs/query-status-contract.md for the provider source.
+      if code == '01'
+        raise SveaPayments::Error, 'Payment status query failed (01); payment outcome remains unknown'
+      end
+      validate_identity(root, request_data.slice('pmtq_id', 'pmtq_sellerid'), required: code.to_i.between?(20, 98))
       validate_identity(root, request_data.slice('pmtq_action', 'pmtq_version'), required: false)
       %w[
         pmtq_action pmtq_version pmtq_sellerid pmtq_id pmtq_orderid pmtq_amount

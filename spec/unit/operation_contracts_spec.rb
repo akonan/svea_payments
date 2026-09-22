@@ -88,7 +88,7 @@ RSpec.describe 'Non-refund operation contracts' do
     expect { invoke(:query) }.to raise_error(SveaPayments::InvalidResponseError)
   end
 
-  it 'rejects a mismatched identity even on a business rejection' do
+  it 'rejects a mismatched identity for a confirmed-range status' do
     stub_request(:post, endpoint(:query)).to_return(body: query_xml.sub('>00<', '>90<').sub('>payment<', '>other<'))
     expect { invoke(:query) }.to raise_error(SveaPayments::InvalidResponseError)
   end
@@ -109,14 +109,14 @@ RSpec.describe 'Non-refund operation contracts' do
     expect { invoke(:methods) }.to raise_error(SveaPayments::InvalidResponseError)
   end
 
-  it 'posts query identity/auth and returns correlated success' do
+  it 'posts query identity/auth and preserves a correlated unpaid status' do
     stub_request(:post, endpoint(:query)).with(body: hash_including('pmtq_id' => 'payment', 'pmtq_sellerid' => 'seller'),
       headers: { 'Authorization' => token }).to_return(body: query_xml)
     expect(invoke(:query)).to include('pmtq_id' => 'payment', 'pmtq_sellerid' => 'seller', 'pmtq_returncode' => '00')
   end
 
-  %w[20 90 99 42].each do |code|
-    it "preserves query business code #{code} without inventing success" do
+  %w[00 10 19 99].each do |code|
+    it "preserves non-confirmed query code #{code} without inventing success" do
       stub_request(:post, endpoint(:query)).to_return(body: "<pmtq><pmtq_returncode>#{code}</pmtq_returncode><pmtq_returntext>Provider text</pmtq_returntext></pmtq>")
       expect(invoke(:query)).to include('pmtq_returncode' => code, 'pmtq_returntext' => 'Provider text')
     end
@@ -125,7 +125,7 @@ RSpec.describe 'Non-refund operation contracts' do
   %w[pmtq_id pmtq_sellerid].each do |field|
     %w[missing mismatched duplicated].each do |problem|
       it "rejects #{problem} query #{field}" do
-        body = query_xml.dup
+        body = query_xml.sub('>00<', '>20<')
         case problem
         when 'missing' then body.sub!(/<#{field}>.*?<\/#{field}>/, '')
         when 'mismatched' then body.sub!(/<#{field}>.*?<\/#{field}>/, "<#{field}>other</#{field}>")

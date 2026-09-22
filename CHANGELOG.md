@@ -1,6 +1,10 @@
 
 ## Unreleased
 
+- Correct query-code semantics using the provider's status-code PDF: require
+  identities for confirmed codes 20–98 (not unpaid 00), and raise for query
+  failure 01. Refund return-code semantics are unchanged. PR remains draft.
+
 - Fix non-refund HTTP failures being returned as empty success-like data; all
   operations now check status, strictly parse XML, bound timeouts and disable retries.
 - Validate query identity and reject missing/duplicate scalar result fields.

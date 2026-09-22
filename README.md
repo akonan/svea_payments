@@ -146,9 +146,12 @@ and refund-completion polling are not implemented by this method.
   including redirects, instead of returning empty payment/report/method data.
   The error exposes `status`; response bodies and credentials are not logged.
 - Invalid XML, missing required result fields and ambiguous scalar fields raise
-  `SveaPayments::InvalidResponseError`. Successful payment queries must echo the
-  requested payment and seller IDs. Rejections may omit those IDs, but supplied
-  IDs must match. Business codes/text remain available in the result hash.
+  `SveaPayments::InvalidResponseError`. Confirmed payment query codes (20–98)
+  must echo the requested payment and seller IDs. Non-confirmed/cancelled replies
+  may omit those IDs, but supplied IDs must match. Code 00 means unpaid, not paid.
+  Code 01 means the query failed and raises `SveaPayments::Error`; never treat it
+  as proof of nonpayment. Other codes/text remain available in the result hash.
+  See [the provider-sourced query contract](docs/query-status-contract.md).
 - Create-payment business errors remain an array of strings. An error-free
   create result must contain a payment ID and payment URL; the ID must match
   the submitted ID when one was supplied.

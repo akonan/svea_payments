@@ -7,8 +7,9 @@ This section supersedes the historical non-refund HTTP/CSV findings below.
 
 - Shared GET/POST transport rejects non-2xx, uses strict XML for XML operations,
   sets 10s connect / 30s read-write timeouts, and disables automatic retries.
-- Query success requires matching seller/payment IDs; supplied rejection IDs
-  must also match. Scalar extraction rejects duplicate/nested values instead
+- Confirmed query codes (20–98) require matching seller/payment IDs; supplied
+  IDs on other codes must also match. Code 01 raises because the query failed.
+  Scalar extraction rejects duplicate/nested values instead
   of concatenating them. Create success requires an ID and URL.
 - Report amounts are scoped to their own compensation/order. CSV returns exact
   bytes; unsupported formats fail before sending.
