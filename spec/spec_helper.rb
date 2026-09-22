@@ -3,12 +3,11 @@
 require "svea_payments"
 require 'webmock/rspec'
 
-WebMock.disable_net_connect!(allow_localhost: true)
+WebMock.disable_net_connect!
 
 RSpec.configure do |config|
   # Live specs can create sandbox payments. Never run them implicitly.
   config.filter_run_excluding live: true unless ENV['SVEA_LIVE_TESTS'] == '1'
-  Dir[File.join(__dir__, 'spec/**/*.rb')].each { |f| require f }
 
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"

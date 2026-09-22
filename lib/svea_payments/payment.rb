@@ -31,7 +31,7 @@ module SveaPayments
       )
       xml = send_post_request(
         URI("#{SveaPayments.base_url}/PaymentCancel.pmt"),
-        URI.encode_www_form(request), token, strict: true
+        URI.encode_www_form(request), token
       )
       root = xml.root
       if !root || root.name != 'pmtc' || root.at_xpath('./pmtc_returncode')&.text.to_s.empty?
@@ -80,23 +80,31 @@ module SveaPayments
         'pmt_version' => '0004'
       }
 
-      final_payment_details = default_values.merge(payment_details)
+      final_payment_details = default_values.merge(payment_details.transform_keys(&:to_s))
 
       # Convert the final payment details hash to URL-encoded form data
       form_data = URI.encode_www_form(final_payment_details)
       
       xml_doc = send_post_request(uri, form_data, token)
+      root = xml_doc.root
+      errors = root.xpath('./errors/error | ./error').map(&:text)
+      if errors.empty? && %w[pmt_id pmt_paymenturl].any? { |field| response_field(root, field).to_s.strip.empty? }
+        invalid_response!('Missing payment result')
+      end
+      if final_payment_details.key?('pmt_id')
+        validate_identity(root, { 'pmt_id' => final_payment_details['pmt_id'] }, required: errors.empty?)
+      end
       # Convert XML document to a Ruby hash or handle it as needed
       # Example: extracting some fields
       response_data = {
-        'pmt_id' => xml_doc.xpath("//pmt_id").text,
-        'pmt_reference' => xml_doc.xpath("//pmt_reference").text,
-        'pmt_amount' => xml_doc.xpath("//pmt_amount").text,
-        'pmt_currency' => xml_doc.xpath("//pmt_currency").text,
-        'pmt_sellercosts' => xml_doc.xpath("//pmt_sellercosts").text,
-        'pmt_paymentmethod' => xml_doc.xpath("//pmt_paymentmethod").text,
-        'pmt_paymenturl' => xml_doc.xpath("//pmt_paymenturl").text,
-        'errors' => xml_doc.xpath("//error").map { |error| error.text }
+        'pmt_id' => response_field(root, 'pmt_id').to_s,
+        'pmt_reference' => response_field(root, 'pmt_reference').to_s,
+        'pmt_amount' => response_field(root, 'pmt_amount').to_s,
+        'pmt_currency' => response_field(root, 'pmt_currency').to_s,
+        'pmt_sellercosts' => response_field(root, 'pmt_sellercosts').to_s,
+        'pmt_paymentmethod' => response_field(root, 'pmt_paymentmethod').to_s,
+        'pmt_paymenturl' => response_field(root, 'pmt_paymenturl').to_s,
+        'errors' => errors
       }
       
       return response_data
@@ -118,30 +126,20 @@ module SveaPayments
       form_data = URI.encode_www_form(request_data)
       
       xml_doc = send_post_request(uri, form_data, token)
-      response_data = {
-        'pmtq_action' => xml_doc.xpath("//pmtq_action")&.text.to_s,
-        'pmtq_version' => xml_doc.xpath("//pmtq_version")&.text.to_s,
-        'pmtq_sellerid' => xml_doc.xpath("//pmtq_sellerid")&.text.to_s,
-        'pmtq_id' => xml_doc.xpath("//pmtq_id")&.text.to_s,
-        'pmtq_orderid' => xml_doc.xpath("//pmtq_orderid")&.text.to_s,
-        'pmtq_amount' => xml_doc.xpath("//pmtq_amount")&.text.to_s,
-        'pmtq_returncode' => xml_doc.xpath("//pmtq_returncode")&.text.to_s,
-        'pmtq_returntext' => xml_doc.xpath("//pmtq_returntext")&.text.to_s,
-        'pmtq_trackingcodes' => xml_doc.xpath("//pmtq_trackingcodes")&.text.to_s,
-        'pmtq_sellercosts' => xml_doc.xpath("//pmtq_sellercosts")&.text.to_s,
-        'pmtq_invoicingfee' => xml_doc.xpath("//pmtq_invoicingfee")&.text.to_s,
-        'pmtq_paymentmethod' => xml_doc.xpath("//pmtq_paymentmethod")&.text.to_s,
-        'pmtq_escrow' => xml_doc.xpath("//pmtq_escrow")&.text.to_s,
-        'pmtq_certification' => xml_doc.xpath("//pmtq_certification")&.text.to_s,
-        'pmtq_externalcode1' => xml_doc.xpath("//pmtq_externalcode1")&.text.to_s,
-        'pmtq_externalcode2' => xml_doc.xpath("//pmtq_externalcode2")&.text.to_s,
-        'pmtq_externaltext' => xml_doc.xpath("//pmtq_externaltext")&.text.to_s,
-        'pmtq_paymentstarttimestamp' => xml_doc.xpath("//pmtq_paymentstarttimestamp")&.text.to_s,
-        'pmtq_paymentdate' => xml_doc.xpath("//pmtq_paymentdate")&.text.to_s,
-        'pmtq_amountrefunded' => xml_doc.xpath("//pmtq_amountrefunded")&.text.to_s,
-        'pmtq_payeriban' => xml_doc.xpath("//pmtq_payeriban")&.text.to_s
-      }
-      return response_data
+      root = xml_doc.root
+      invalid_response!('Invalid payment query root') unless root.name == 'pmtq'
+      code = response_field(root, 'pmtq_returncode')
+      invalid_response!('Invalid payment query code') unless code&.match?(/\A\d{2}\z/)
+      # Rejections may omit identifiers, but supplied identities must match.
+      validate_identity(root, request_data.slice('pmtq_id', 'pmtq_sellerid'), required: code == '00')
+      validate_identity(root, request_data.slice('pmtq_action', 'pmtq_version'), required: false)
+      %w[
+        pmtq_action pmtq_version pmtq_sellerid pmtq_id pmtq_orderid pmtq_amount
+        pmtq_returncode pmtq_returntext pmtq_trackingcodes pmtq_sellercosts
+        pmtq_invoicingfee pmtq_paymentmethod pmtq_escrow pmtq_certification
+        pmtq_externalcode1 pmtq_externalcode2 pmtq_externaltext
+        pmtq_paymentstarttimestamp pmtq_paymentdate pmtq_amountrefunded pmtq_payeriban
+      ].to_h { |field| [field, response_field(root, field).to_s] }
     end
   end
 end

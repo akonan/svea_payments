@@ -12,15 +12,21 @@ module SveaPayments
       form_data = URI.encode_www_form(request_details)
       request_uri = URI(uri + "?#{form_data}")
       xml_doc = send_get_request(request_uri, token)
+      root = xml_doc.root
+      # A recognized empty list is valid; an HTML/error document is not a list.
+      invalid_response!('Invalid payment methods response') unless root.name == 'paymentmethods'
+      invalid_response!('Payment methods response contains errors') if root.at_xpath('./errors | ./error')
       
       payment_methods = []
 
-      xml_doc.xpath('//paymentmethod').each do |method_node|
+      root.xpath('./paymentmethod').each do |method_node|
+        invalid_response!('Missing payment method code') if response_field(method_node, 'code').to_s.strip.empty?
+        image_url = response_field(method_node, 'imageurl')
         payment_methods << {
-          code: method_node.at_xpath('code')&.text,
-          displayname: method_node.at_xpath('displayname')&.text,
+          code: response_field(method_node, 'code'),
+          displayname: response_field(method_node, 'displayname'),
           imageurl: {
-            url: method_node.at_xpath('imageurl')&.text,
+            url: image_url,
             width: method_node.at_xpath('imageurl/@width')&.text.to_i,
             height: method_node.at_xpath('imageurl/@height')&.text.to_i,
             mimetype: method_node.at_xpath('imageurl/@mimetype')&.text

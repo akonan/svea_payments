@@ -2,11 +2,11 @@ require 'spec_helper'
 
 RSpec.describe SveaPayments::PaymentMethods, :type => :request, :live => true do
   before do
-    WebMock.allow_net_connect!
+    WebMock.disable_net_connect!(allow: %r{\Ahttps://test1\.maksuturva\.fi(?::443)?/})
   end
 
   after do
-    WebMock.disable_net_connect!(allow_localhost: true)
+    WebMock.disable_net_connect!
   end
 
   describe 'get available payment methods' do

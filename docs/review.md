@@ -1,5 +1,31 @@
 # Repository review and refund handoff
 
+## Follow-up: five merged-codebase findings addressed locally
+
+Branch: `harden-payment-response-contracts`, based on merged master `e31d3fd`.
+This section supersedes the historical non-refund HTTP/CSV findings below.
+
+- Shared GET/POST transport rejects non-2xx, uses strict XML for XML operations,
+  sets 10s connect / 30s read-write timeouts, and disables automatic retries.
+- Query success requires matching seller/payment IDs; supplied rejection IDs
+  must also match. Scalar extraction rejects duplicate/nested values instead
+  of concatenating them. Create success requires an ID and URL.
+- Report amounts are scoped to their own compensation/order. CSV returns exact
+  bytes; unsupported formats fail before sending.
+- Offline success, rejection, malformed-response, identity and transport tests
+  cover non-refund operations. Live specs only allow the HTTPS sandbox host.
+
+Verification on Ruby 3.4.9: 154 examples pass, including randomized seed 7129.
+Loading the original master implementations against the focused regression
+suite yields 62 failures in 78 examples, confirming the tests detect the old
+behavior. Gem build and `git diff --check` pass. No live API calls were made.
+
+Compatibility gate: new XML fixtures are synthetic, not provider recordings.
+Full live wrapper/error variants remain unverified. Obtain documentation exports
+or redacted fixtures and update consumer exception handling before deployment.
+No consumer code changes, credential-history cleanup, Ruby-version matrix rerun,
+or release are included. Public release remains on hold.
+
 ## PR #9 follow-up: release remains on hold
 
 CI now targets Ruby 3.2 and 3.4.9; the gem minimum is 3.2 to match the locked
