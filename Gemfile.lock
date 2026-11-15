@@ -3,7 +3,6 @@ PATH
   specs:
     svea_payments (0.1.2)
       base64 (~> 0.2)
-      httparty (~> 0.18)
       nokogiri (~> 1.16, >= 1.16.2)
 
 GEM
@@ -18,11 +17,6 @@ GEM
       rexml
     diff-lcs (1.5.1)
     hashdiff (1.1.0)
-    httparty (0.21.0)
-      mini_mime (>= 1.0.0)
-      multi_xml (>= 0.5.2)
-    mini_mime (1.1.5)
-    multi_xml (0.6.0)
     nokogiri (1.19.4-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.19.4-x86_64-darwin)

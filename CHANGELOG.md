@@ -1,6 +1,8 @@
 
 ## Unreleased
 
+- Drop the unused HTTParty runtime dependency; transport uses Net::HTTP only.
+
 - Correct query-code semantics using the provider's status-code PDF: require
   identities for confirmed codes 20–98 (not unpaid 00), and raise for query
   failure 01. Refund return-code semantics are unchanged. PR remains draft.
