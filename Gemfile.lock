@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    svea_payments (0.1.2)
+    svea_payments (0.2.0)
       base64 (~> 0.2)
       nokogiri (~> 1.16, >= 1.16.2)
 

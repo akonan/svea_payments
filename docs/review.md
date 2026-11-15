@@ -1,5 +1,16 @@
 # Repository review and refund handoff
 
+## 2026-11-15 update
+
+- The credential-like values in `spec/integration` are Svea sandbox test
+  credentials, confirmed by the repository owner. Live specs stay opt-in.
+- Svea's public documentation was retrieved in full; see
+  `docs/provider-contract-sources.md`. The earlier "contract unavailable" and
+  "synthetic fixtures only" gates below are superseded for reports, refunds and
+  the status query. Sandbox verification is still outstanding.
+- Before-settlement refunds and report result-code handling are implemented;
+  HTTParty is no longer a dependency. Version is 0.2.0, not published.
+
 ## Follow-up: five merged-codebase findings addressed locally
 
 Branch: `harden-payment-response-contracts`, based on merged master `e31d3fd`.
