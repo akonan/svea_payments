@@ -9,19 +9,52 @@ module SveaPayments
       pmtc_pay_with_amount pmtc_pay_with_iban
     ].freeze
 
+    CANCEL_RESPONSE_FIELDS = %w[
+      pmtc_action pmtc_version pmtc_sellerid pmtc_id pmtc_returncode pmtc_returntext
+    ].freeze
+    BEFORE_SETTLEMENT_CANCEL_TYPES = %w[
+      FULL_REFUND PARTIAL_REFUND PARTIAL_REFUND_AND_RETURN_OF_DELIVERIES
+    ].freeze
+    COMMA_AMOUNT = /\A\d+,\d{2}\z/
+
+    # Refunds or cancels a payment that has not reached settlement. Code 00 means
+    # the request was received. Code 30 means the payment is already settled:
+    # the caller decides whether to use refund_after_settlement; nothing falls
+    # back automatically and nothing is retried.
+    def self.refund_before_settlement(token, refund_details)
+      details = refund_details.transform_keys(&:to_s)
+      require_cancel_fields!(details, %w[pmtc_sellerid pmtc_id pmtc_amount pmtc_currency pmtc_canceltype])
+      require_comma_amount!(details, 'pmtc_amount')
+      type = details['pmtc_canceltype']
+      unless BEFORE_SETTLEMENT_CANCEL_TYPES.include?(type)
+        raise ArgumentError, "pmtc_canceltype must be one of #{BEFORE_SETTLEMENT_CANCEL_TYPES.join(', ')}"
+      end
+      if type == 'FULL_REFUND'
+        # The provider requires the amount to be omitted for a full refund.
+        unless details['pmtc_cancelamount'].to_s.strip.empty?
+          raise ArgumentError, 'pmtc_cancelamount must be omitted for FULL_REFUND'
+        end
+        details.delete('pmtc_cancelamount')
+      else
+        require_cancel_fields!(details, %w[pmtc_cancelamount])
+        require_comma_amount!(details, 'pmtc_cancelamount')
+        unless details['pmtc_cancelamount'].delete(',').to_i.positive?
+          raise ArgumentError, 'pmtc_cancelamount must be greater than zero'
+        end
+      end
+      request = { 'pmtc_keygeneration' => '001' }.merge(details).merge(
+        'pmtc_action' => 'CANCEL', 'pmtc_version' => '0005', 'pmtc_resptype' => 'XML'
+      )
+      _root, response = post_cancel(token, request, CANCEL_RESPONSE_FIELDS)
+      response
+    end
+
     # Initiates a refund only. The merchant must separately fund it using the
     # returned bank transfer instructions. No money transfer or retry is done here.
     def self.refund_after_settlement(token, refund_details)
       details = refund_details.transform_keys(&:to_s)
-      %w[pmtc_sellerid pmtc_id pmtc_amount pmtc_currency pmtc_cancelamount].each do |field|
-        raise ArgumentError, "#{field} is required" if details[field].to_s.strip.empty?
-      end
-      %w[pmtc_amount pmtc_cancelamount].each do |field|
-        value = details[field]
-        unless value.is_a?(String) && value.match?(/\A\d+,\d{2}\z/)
-          raise ArgumentError, "#{field} must be a string with two comma-separated decimals"
-        end
-      end
+      require_cancel_fields!(details, %w[pmtc_sellerid pmtc_id pmtc_amount pmtc_currency pmtc_cancelamount])
+      %w[pmtc_amount pmtc_cancelamount].each { |field| require_comma_amount!(details, field) }
       # Protocol constants cannot be overridden by the caller.
       request = { 'pmtc_keygeneration' => '001' }.merge(details).merge(
         'pmtc_action' => 'REFUND_AFTER_SETTLEMENT',
@@ -29,6 +62,40 @@ module SveaPayments
         'pmtc_canceltype' => 'REFUND_AFTER_SETTLEMENT',
         'pmtc_resptype' => 'XML'
       )
+      _root, response = post_cancel(token, request, REFUND_RESPONSE_FIELDS)
+      if response['pmtc_returncode'] == '00'
+        %w[pmtc_pay_with_reference pmtc_pay_with_recipientname pmtc_pay_with_amount pmtc_pay_with_iban].each do |field|
+          if response[field].to_s.strip.empty?
+            raise SveaPayments::InvalidResponseError, "Missing #{field}; request outcome may be unknown"
+          end
+        end
+        # The funding amount need not equal the requested refund amount.
+        amount = response['pmtc_pay_with_amount']
+        unless amount.match?(COMMA_AMOUNT) && amount.delete(',').to_i.positive?
+          raise SveaPayments::InvalidResponseError, 'Invalid funding amount; request outcome may be unknown'
+        end
+      end
+      response
+    end
+
+    def self.require_cancel_fields!(details, fields)
+      fields.each do |field|
+        raise ArgumentError, "#{field} is required" if details[field].to_s.strip.empty?
+      end
+    end
+    private_class_method :require_cancel_fields!
+
+    def self.require_comma_amount!(details, field)
+      value = details[field]
+      return if value.is_a?(String) && value.match?(COMMA_AMOUNT)
+
+      raise ArgumentError, "#{field} must be a string with two comma-separated decimals"
+    end
+    private_class_method :require_comma_amount!
+
+    # Shared PaymentCancel.pmt exchange: one request, never retried. The reply
+    # must echo the request's action, version, seller and payment identity.
+    def self.post_cancel(token, request, fields)
       xml = send_post_request(
         URI("#{SveaPayments.base_url}/PaymentCancel.pmt"),
         URI.encode_www_form(request), token
@@ -37,11 +104,11 @@ module SveaPayments
       if !root || root.name != 'pmtc' || root.at_xpath('./pmtc_returncode')&.text.to_s.empty?
         raise SveaPayments::InvalidResponseError, 'Missing refund response/code; request outcome may be unknown'
       end
-      response = REFUND_RESPONSE_FIELDS.each_with_object({}) do |field, result|
+      response = fields.each_with_object({}) do |field, result|
         result[field] = root.at_xpath("./#{field}")&.text
       end
       # Reject ambiguous replies instead of choosing the first duplicate field.
-      REFUND_RESPONSE_FIELDS.each do |field|
+      fields.each do |field|
         if root.xpath("./#{field}").length > 1
           raise SveaPayments::InvalidResponseError, "Duplicate #{field}; request outcome may be unknown"
         end
@@ -54,23 +121,12 @@ module SveaPayments
       unless response['pmtc_returncode'].match?(/\A\d{2}\z/)
         raise SveaPayments::InvalidResponseError, 'Invalid refund response code; request outcome may be unknown'
       end
-      if response['pmtc_returncode'] == '00'
-        %w[pmtc_pay_with_reference pmtc_pay_with_recipientname pmtc_pay_with_amount pmtc_pay_with_iban].each do |field|
-          if response[field].to_s.strip.empty?
-            raise SveaPayments::InvalidResponseError, "Missing #{field}; request outcome may be unknown"
-          end
-        end
-        # The funding amount need not equal the requested refund amount.
-        amount = response['pmtc_pay_with_amount']
-        unless amount.match?(/\A\d+,\d{2}\z/) && amount.delete(',').to_i.positive?
-          raise SveaPayments::InvalidResponseError, 'Invalid funding amount; request outcome may be unknown'
-        end
-      end
       response['errors'] = root.xpath('./errors/error').map do |error|
         { 'type' => error['type'], 'name' => error['name'], 'message' => error.text }
       end
-      response
+      [root, response]
     end
+    private_class_method :post_cancel
 
     def self.create_payment(token, payment_details)
       uri = URI("#{SveaPayments.base_url}/NewPaymentExtended.pmt")

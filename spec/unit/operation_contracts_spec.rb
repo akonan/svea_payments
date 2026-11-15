@@ -2,13 +2,14 @@ require 'spec_helper'
 require 'date'
 
 # Synthetic regression fixtures based on the fields exposed by this gem.
-# These are not recordings of live Svea replies or proof of the full API schema.
+# These are not recordings of live Svea replies. Root names follow Svea's docs;
+# documented examples are exercised in report_contract_spec and the refund specs.
 RSpec.describe 'Non-refund operation contracts' do
   let(:token) { 'Basic fake' }
   let(:base) { SveaPayments.base_url }
   let(:create_xml) { '<pmt><pmt_id>payment</pmt_id><pmt_paymenturl>https://example.test/pay</pmt_paymenturl><pmt_amount>12,00</pmt_amount></pmt>' }
   let(:query_xml) { '<pmtq><pmtq_id>payment</pmtq_id><pmtq_sellerid>seller</pmtq_sellerid><pmtq_returncode>00</pmtq_returncode><pmtq_amount>12,00</pmtq_amount></pmtq>' }
-  let(:report_xml) { '<report><sellerId>seller</sellerId><resultCode>00</resultCode><compensations/></report>' }
+  let(:report_xml) { '<getCompensationsResponse><sellerId>seller</sellerId><resultCode>00</resultCode><compensations/></getCompensationsResponse>' }
   let(:methods_xml) { '<paymentmethods><paymentmethod><code>FI01</code><displayname>Bank</displayname><imageurl width="80" height="40" mimetype="image/png">https://example.test/icon.png</imageurl></paymentmethod></paymentmethods>' }
 
   def invoke(operation)
@@ -99,7 +100,7 @@ RSpec.describe 'Non-refund operation contracts' do
   end
 
   it 'rejects duplicate order amounts instead of choosing one' do
-    body = '<report><resultCode>00</resultCode><compensation><order><commission>1,00</commission><commission>2,00</commission></order></compensation></report>'
+    body = '<getCompensationsResponse><resultCode>00</resultCode><compensations><compensation><orders><order><commission>1,00</commission><commission>2,00</commission></order></orders></compensation></compensations></getCompensationsResponse>'
     stub_request(:post, endpoint(:report)).to_return(body: body)
     expect { invoke(:report) }.to raise_error(SveaPayments::InvalidResponseError)
   end
@@ -153,17 +154,19 @@ RSpec.describe 'Non-refund operation contracts' do
     expect(invoke(:report)).to include('sellerId' => 'seller', 'resultCode' => '00', 'compensations' => [])
   end
 
-  it 'preserves report business rejection text/code' do
-    stub_request(:post, endpoint(:report)).to_return(body: '<report><resultCode>90</resultCode><resultText>Rejected</resultText></report>')
-    expect(invoke(:report)).to include('resultCode' => '90', 'resultText' => 'Rejected')
+  it 'raises report business rejections with their code and text' do
+    stub_request(:post, endpoint(:report)).to_return(body: '<getCompensationsResponse><resultCode>90</resultCode><resultText>Rejected</resultText></getCompensationsResponse>')
+    expect { invoke(:report) }.to raise_error(SveaPayments::ReportError) { |error|
+      expect(error).to have_attributes(code: '90', text: 'Rejected')
+    }
   end
 
   it 'preserves parent totals regardless of child ordering, across multiple settlements and orders' do
-    body = '<report><resultCode>00</resultCode><compensations>' +
+    body = '<getCompensationsResponse><resultCode>00</resultCode><compensations>' +
       '<compensation><orders><order><commission>1,00</commission><refundedAmount>2,00</refundedAmount></order>' +
       '<order><commission>3,00</commission></order></orders><commission>9,00</commission><refundedAmount>8,00</refundedAmount></compensation>' +
       '<compensation><orders><order><commission>7,00</commission><refundedAmount>6,00</refundedAmount></order></orders></compensation>' +
-      '</compensations></report>'
+      '</compensations></getCompensationsResponse>'
     stub_request(:post, endpoint(:report)).to_return(body: body)
     rows = invoke(:report)['compensations']
     expect(rows.size).to eq(2)
@@ -174,7 +177,7 @@ RSpec.describe 'Non-refund operation contracts' do
   end
 
   it 'rejects duplicate report scalar fields' do
-    stub_request(:post, endpoint(:report)).to_return(body: report_xml.sub('</report>', '<resultCode>90</resultCode></report>'))
+    stub_request(:post, endpoint(:report)).to_return(body: report_xml.sub('</getCompensationsResponse>', '<resultCode>90</resultCode></getCompensationsResponse>'))
     expect { invoke(:report) }.to raise_error(SveaPayments::InvalidResponseError)
   end
 

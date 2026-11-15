@@ -4,6 +4,8 @@ module SveaPayments
   class Reports
     extend Base
 
+    NO_EVENTS = /\ANo events found\.?\z/i
+
     def self.get_compensation_report(start_date, end_date, seller_id, token, format: 'XML', key_generation: '001')
       raise ArgumentError, 'format must be XML or CSV' unless %w[XML CSV].include?(format)
       uri = URI("#{SveaPayments.base_url}/GetCompensationsByTimeInterval.pmt")
@@ -30,17 +32,25 @@ module SveaPayments
       
       if format == 'XML'
         root = xml_doc.root
-        invalid_response!('Missing report resultCode') if response_field(root, 'resultCode').to_s.strip.empty?
+        invalid_response!('Invalid report root') unless root.name == 'getCompensationsResponse'
+        result_code = response_field(root, 'resultCode')
+        invalid_response!('Missing or invalid report resultCode') unless result_code&.match?(/\A\d{2}\z/)
         validate_identity(root, { 'sellerId' => seller_id }, required: false)
+        result_text = response_field(root, 'resultText')
+        # Svea reports a period without settlements as 95 "No events found.";
+        # every other non-00 reply is a failure and carries no report data.
+        unless result_code == '00' || (result_code == '95' && result_text.to_s.strip.match?(NO_EVENTS))
+          raise SveaPayments::ReportError.new(result_code, result_text)
+        end
         # Parse and return the XML response
         {
           'version' => response_field(root, 'version'),
           'timestamp' => response_field(root, 'timestamp'),
           'sellerId' => response_field(root, 'sellerId'),
-          'resultCode' => response_field(root, 'resultCode'),
-          'resultText' => response_field(root, 'resultText'),
+          'resultCode' => result_code,
+          'resultText' => result_text,
           'keyGeneration' => response_field(root, 'keyGeneration'),
-          'compensations' => parse_compensations(xml_doc)
+          'compensations' => parse_compensations(root)
         }
       else
         # Return raw response for CSV format
@@ -50,8 +60,9 @@ module SveaPayments
 
     private
 
-    def self.parse_compensations(xml_doc)
-      xml_doc.xpath('//compensation').map do |comp|
+    # Documented path: getCompensationsResponse/compensations/compensation/orders/order.
+    def self.parse_compensations(root)
+      root.xpath('./compensations/compensation').map do |comp|
         {
           'compensationCode' => response_field(comp, 'compensationCode'),
           'compensationType' => response_field(comp, 'compensationType'),
@@ -68,7 +79,7 @@ module SveaPayments
     end
 
     def self.parse_orders(compensation)
-      compensation.xpath('.//order').map do |order|
+      compensation.xpath('./orders/order').map do |order|
         {
           'bundleCode' => response_field(order, 'bundleCode'),
           'orderNumber' => response_field(order, 'orderNumber'),

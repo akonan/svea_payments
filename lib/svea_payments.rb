@@ -9,6 +9,16 @@ module SveaPayments
     end
   end
   class InvalidResponseError < Error; end
+  # Svea answered a settlement report request with a result code other than 00.
+  class ReportError < Error
+    attr_reader :code, :text
+
+    def initialize(code, text)
+      @code = code
+      @text = text
+      super("Svea report request failed (#{code}): #{text}")
+    end
+  end
 end
 
 require_relative "svea_payments/version"
