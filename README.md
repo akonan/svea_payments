@@ -166,6 +166,94 @@ provided PDF export `DOCS-Refund Payment After Settlement-210926-133729.pdf`.
 This document specifies **no grace-period cutoff**. Refund-completion polling is
 not implemented.
 
+### Saved cards: registering and charging with a token
+
+Requires a separate agreement with Svea. Svea's card processor stores the card;
+your application stores only the token. Nothing here has been run against
+Svea: it follows the documentation, and the points marked **unverified** below
+need a sandbox check before use.
+
+**1. Register the card (in the buyer's browser).** The buyer must have accepted
+that the card is stored. Build a form and submit it from the browser:
+
+```ruby
+form = SveaPayments::CardToken.registration_form({
+  'pmt_sellerid' => seller_id, 'pmt_id' => 'unique-id', 'pmt_orderid' => 'order-1',
+  'pmt_reference' => '19985242', 'pmt_currency' => 'EUR',
+  'pmt_okreturn' => 'https://shop.example/cards/return', # plus the other
+  # fields Svea requires for a payment: error/cancel URLs, buyer and row fields
+}, secret: secret_key)
+form['url']    # => ".../TokenizeExtended.pmt"
+form['fields'] # => hidden inputs, including pmt_hash
+```
+
+`registration_form` registers without charging (amounts are `0,00`).
+`payment_with_registration_form` charges the card and registers it in one step.
+Both set payment method `FI50`, UTF-8 and the request hash; the caller cannot
+override those. The secret key is used for the hash and never placed in the form.
+
+**2. Read the token from the buyer's return.**
+
+```ruby
+result = SveaPayments::CardToken.verify_return(request_params, secret: secret_key, payment_id: 'unique-id')
+result['pmt_token'] # store against the customer who registered the card
+```
+
+It raises `SveaPayments::InvalidResponseError` unless the hash is valid, the
+payment ID is the one you expect and a token is present. Make sure the return
+belongs to the signed-in customer before storing the token. The token is also
+returned as `pmtq_token` by `query_payment_status`, along with its expiry,
+limits and masked card details.
+
+**3. Charge the card (server to server).**
+
+```ruby
+result = SveaPayments::CardToken.charge(token, {
+  'pmt_sellerid' => seller_id, 'pmt_id' => 'unique-charge-id', 'pmt_token' => card_token,
+  'pmt_amount' => '50,00', 'pmt_sellercosts' => '0,00', 'pmt_currency' => 'EUR',
+  # plus the other fields Svea requires for a payment, including return URLs
+}, secret: secret_key, initiator: :customer)
+```
+
+`initiator` is required: `:customer` when the cardholder is making a purchase
+now, `:merchant` when no cardholder is present, including recurring charges.
+`token` is the Basic authentication value; `secret` signs the request.
+
+| `outcome` | Meaning | What to do |
+| --- | --- | --- |
+| `charged` | Result code `00` | Fulfil the order |
+| `authentication_required` | Result code `01` (customer-initiated only) | Redirect the cardholder to `pmt_cardholderauthenticationurl`; the charge completes, or not, when they return to your OK, cancel or error URL |
+| `unknown` | Timed out, waiting, already paid, or an undocumented result | Query the payment status; do not charge again |
+| `failed` | Refused | See `pmt_errorcode`, `pmt_errortext` and `errors` |
+
+`HTTPError`, `InvalidResponseError` and timeouts also leave the outcome
+unknown. Persist the `pmt_id` before calling, never retry under a new ID before
+`query_payment_status` has settled the old one, and treat only a confirmed
+status as paid. Charges are never retried by the gem.
+
+Svea's rules for merchant-initiated and recurring charges are yours to meet:
+the cardholder accepts the recurring terms before registration, receives a
+confirmation, is told the amount and date before each charge, and can cancel.
+Svea blocks charges beyond the agreed monthly amount or count, and states that
+a recurring charge cannot exceed the original payment.
+
+**Unverified against Svea:**
+
+- The hash format has no reproducible test vector; the documentation's example
+  hashes do not publish their secret key.
+- The charge reply's `pmt_hash` is not checked, because the documentation does
+  not list its fields.
+- Whether the registration endpoints also accept the server-to-server request
+  with Basic authentication used by `create_payment`.
+- The documentation lists `http://test1.maksuturva.fi` for these endpoints; the
+  gem uses `https://test1.maksuturva.fi`.
+- The token information endpoint (`/api/token-query/`) is not implemented: its
+  URL format is ambiguous in the documentation.
+- Token deletion is not documented and not implemented.
+
+Source: [Card (tokenization and charging)](https://sveapayments.atlassian.net/wiki/spaces/DOCS/pages/1657013059)
+and [Hash Generation](https://sveapayments.atlassian.net/wiki/spaces/DOCSLEGACY/pages/262253).
+
 ### Getting Available Payment Methods
 
     request_details = {

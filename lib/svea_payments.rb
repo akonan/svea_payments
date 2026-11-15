@@ -26,10 +26,14 @@ require_relative "svea_payments/authentication"
 require_relative "svea_payments/payment"
 require_relative "svea_payments/payment_methods"
 require_relative "svea_payments/reports"
+require_relative "svea_payments/signature"
+require_relative "svea_payments/card_token"
 
 module SveaPayments
   BASE_URL_TEST = "https://test1.maksuturva.fi"
   BASE_URL_PROD = "https://www.maksuturva.fi"
+  # Token charges use a separate production host.
+  CHARGE_BASE_URL_PROD = "https://payments.maksuturva.fi"
 
   module Configuration
     @use_test_env = false
@@ -52,5 +56,9 @@ module SveaPayments
 
   def self.base_url
     Configuration.use_test_env ? BASE_URL_TEST : BASE_URL_PROD
+  end
+
+  def self.charge_base_url
+    Configuration.use_test_env ? BASE_URL_TEST : CHARGE_BASE_URL_PROD
   end
 end

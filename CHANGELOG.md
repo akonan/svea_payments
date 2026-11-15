@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Add saved-card support (requires a separate agreement with Svea):
+  `CardToken.registration_form`, `CardToken.payment_with_registration_form`,
+  `CardToken.verify_return` and `CardToken.charge` for customer- and
+  merchant-initiated token charges, plus `Signature` for the hash-signed
+  messages these use. `query_payment_status` now returns token and card fields.
+  Follows Svea's documentation; not yet verified against the sandbox.
+
 ## [0.2.0] - 2026-11-15
 
 Not yet published. Error handling is not drop-in compatible with 0.1.2.

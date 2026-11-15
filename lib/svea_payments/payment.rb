@@ -200,6 +200,11 @@ module SveaPayments
         pmtq_invoicingfee pmtq_paymentmethod pmtq_escrow pmtq_certification
         pmtq_externalcode1 pmtq_externalcode2 pmtq_externaltext
         pmtq_paymentstarttimestamp pmtq_paymentdate pmtq_amountrefunded pmtq_payeriban
+        pmtq_token pmtq_token_authentication_required pmtq_token_debit_limit
+        pmtq_token_debit_limit_currency pmtq_token_debit_limit_monthly
+        pmtq_token_expiration_month pmtq_token_expiration_year
+        pmtq_card_browser_country pmtq_card_category pmtq_card_funding_type
+        pmtq_card_issuer_country pmtq_card_number_masked pmtq_card_scheme
       ].to_h { |field| [field, response_field(root, field).to_s] }
     end
   end
