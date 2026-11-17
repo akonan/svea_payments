@@ -173,6 +173,10 @@ your application stores only the token. Nothing here has been run against
 Svea: it follows the documentation, and the points marked **unverified** below
 need a sandbox check before use.
 
+The [saved cards integration guide](docs/saved-cards.md) describes the ways to
+use this (subscriptions, card on file, one-click purchases, varying merchant
+charges, replacing a card) and the full sequence for each.
+
 **1. Register the card (in the buyer's browser).** The buyer must have accepted
 that the card is stored. Build a form and submit it from the browser:
 

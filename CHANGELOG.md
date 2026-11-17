@@ -6,6 +6,7 @@
   merchant-initiated token charges, plus `Signature` for the hash-signed
   messages these use. `query_payment_status` now returns token and card fields.
   Follows Svea's documentation; not yet verified against the sandbox.
+  Integration guide in `docs/saved-cards.md`.
 
 ## [0.2.0] - 2026-11-15
 
